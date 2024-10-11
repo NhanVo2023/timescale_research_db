@@ -1,5 +1,6 @@
 import psycopg2
 import pandas as pd
+from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 ## Before starting, please have Postgresql install, follow this instruction to install and setup timescale DB
 ## https://youtu.be/A73bZISslQQ?feature=shared
@@ -11,26 +12,26 @@ conn = psycopg2.connect(database="postgres",
                         user="postgres",
                         password="password",
                         port=5432)
-
+conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
 cursor = conn.cursor()
 
 #########################
 ##### create tables #####
 #########################
 
-# create_company_table = """CREATE TABLE company(symbol text PRIMARY KEY NOT NULL,name text NOT NULL);"""
-# cursor.execute(create_company_table)
-# create_stock_table = """CREATE TABLE stocks_real_time(
-# time TIMESTAMPTZ NOT NULL,
-# symbol text NOT NULL,
-# price float NOT NULL,
-# day_volume INT NULL);"""
-# cursor.execute(create_stock_table)
-# create_index_symbol = """CREATE INDEX ix_symbol_time ON stocks_real_time (symbol, time DESC);"""
-# cursor.execute(create_index_symbol)
-# create_hybertable = """SELECT create_hypertable('stocks_real_time','time');"""
-# cursor.execute(create_hybertable)
-# conn.commit()
+create_company_table = """CREATE TABLE company(symbol text PRIMARY KEY NOT NULL,name text NOT NULL);"""
+cursor.execute(create_company_table)
+create_stock_table = """CREATE TABLE stocks_real_time(
+time TIMESTAMPTZ NOT NULL,
+symbol text NOT NULL,
+price float NOT NULL,
+day_volume INT NULL);"""
+cursor.execute(create_stock_table)
+create_index_symbol = """CREATE INDEX ix_symbol_time ON stocks_real_time (symbol, time DESC);"""
+cursor.execute(create_index_symbol)
+create_hybertable = """SELECT create_hypertable('stocks_real_time','time');"""
+cursor.execute(create_hybertable)
+conn.commit()
 
 #########################
 #####   querying    #####
@@ -66,3 +67,40 @@ GROUP BY bucket, symbol
 ORDER BY bucket, symbol;"""
 cursor.execute(time_bucket)
 print(pd.DataFrame(cursor.fetchall()))
+
+print("\nContinuous Aggregates")
+time_bucket_candle = """SELECT 
+time_bucket('1 day',time) AS day,
+symbol,
+max(price) AS high,
+first(price,time) AS open,
+last(price,time) AS close,
+min(price) AS low
+FROM stocks_real_time srt
+GROUP BY day, symbol
+ORDER BY day DESC, symbol;"""
+cursor.execute(time_bucket_candle)
+print(pd.DataFrame(cursor.fetchall()))
+
+material_view_ca = """
+CREATE MATERIALIZED VIEW stock_candlestick_daily
+WITH(timescaledb.continuous) AS
+SELECT 
+    time_bucket('1 day',time) AS day,
+    symbol,
+    max(price) AS high,
+    first(price,time) AS open,
+    last(price,time) AS close,
+    min(price) AS low
+FROM stocks_real_time srt
+GROUP BY day, symbol;
+"""
+cursor.execute(material_view_ca)
+conn.commit()
+
+material_view_ca_query = """
+SELECT * FROM stock_candlestick_daily
+ORDER BY day DESC, symbol;
+"""
+cursor.execute(material_view_ca_query)
+print(pd.DataFrame(cursor.fetchall())) # faster than the time_bucket_candle
