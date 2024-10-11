@@ -2,9 +2,11 @@ import psycopg2
 import pandas as pd
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
-## Before starting, please have Postgresql install, follow this instruction to install and setup timescale DB
-## https://youtu.be/A73bZISslQQ?feature=shared
-## full playlist: https://youtube.com/playlist?list=PLsceB9ac9MHScvW5NBuCaYafW87hP-Gi2&feature=shared
+#########################################################################################################################
+## Before starting, please have Postgresql install, please follow this instruction to install and setup timescale DB   ##
+## https://youtu.be/A73bZISslQQ?feature=shared                                                                         ##
+## full playlist: https://youtube.com/playlist?list=PLsceB9ac9MHScvW5NBuCaYafW87hP-Gi2&feature=shared                  ##
+#########################################################################################################################
 
 # Create connection
 conn = psycopg2.connect(database="postgres",
